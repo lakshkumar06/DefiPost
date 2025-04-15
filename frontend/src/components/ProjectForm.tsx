@@ -3,14 +3,16 @@ import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+interface ProjectFormData {
+  name: string;
+  description: string;
+  target_amount: number;
+  status: string;
+}
+
 interface ProjectFormProps {
   projectId?: number;
-  initialData?: {
-    name: string;
-    description: string;
-    targetAmount: number;
-    status: string;
-  };
+  initialData?: ProjectFormData;
   mode: 'create' | 'edit';
 }
 
@@ -19,18 +21,20 @@ export const ProjectForm = ({ projectId, initialData, mode }: ProjectFormProps) 
   const { user } = useAuth();
   const { createProject, updateProject, loading, error } = useProject();
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProjectFormData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
-    targetAmount: initialData?.targetAmount || 0,
-    status: initialData?.status || 'active'
+    target_amount: initialData?.target_amount || 0,
+    status: initialData?.status || 'active',
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'targetAmount' ? parseFloat(value) || 0 : value
+      [name]: name === 'target_amount' ? parseFloat(value) || 0 : value,
     }));
   };
 
@@ -39,20 +43,11 @@ export const ProjectForm = ({ projectId, initialData, mode }: ProjectFormProps) 
     
     try {
       if (mode === 'create') {
-        const newProject = await createProject(
-          formData.name,
-          formData.description,
-          formData.targetAmount
-        );
+        const { name, description, target_amount } = formData;
+        const newProject = await createProject({ name, description, target_amount });
         navigate(`/projects/${newProject.id}`);
       } else if (mode === 'edit' && projectId) {
-        await updateProject(
-          projectId,
-          formData.name,
-          formData.description,
-          formData.targetAmount,
-          formData.status
-        );
+        await updateProject(projectId, formData);
         navigate(`/projects/${projectId}`);
       }
     } catch (err) {
@@ -92,7 +87,7 @@ export const ProjectForm = ({ projectId, initialData, mode }: ProjectFormProps) 
             value={formData.name}
             onChange={handleChange}
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
         
@@ -107,45 +102,26 @@ export const ProjectForm = ({ projectId, initialData, mode }: ProjectFormProps) 
             onChange={handleChange}
             required
             rows={4}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
         
         <div>
-          <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-700">
-            Target Amount (ETH)
+          <label htmlFor="target_amount" className="block text-sm font-medium text-gray-700">
+            Target Amount ($)
           </label>
           <input
             type="number"
-            id="targetAmount"
-            name="targetAmount"
-            value={formData.targetAmount}
+            id="target_amount"
+            name="target_amount"
+            value={formData.target_amount}
             onChange={handleChange}
             required
             min="0"
             step="0.01"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
-        
-        {mode === 'edit' && (
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            >
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        )}
         
         <div className="flex justify-end space-x-4">
           <button

@@ -1,5 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import { useWeb3 } from '../context/Web3Context';
+import { Link } from 'react-router-dom';
+import { ProjectList } from '../components/ProjectList';
 
 const Homepage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -10,7 +12,7 @@ const Homepage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Welcome, {user?.name}!</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Your Profile</h2>
           <div className="space-y-2">
@@ -26,35 +28,34 @@ const Homepage = () => {
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="space-y-4">
-            {user?.role === 'founder' && (
-              <a
-                href="/projects"
+        {/* Quick Actions - Only for founders */}
+        {user?.role === 'founder' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+            <div className="space-y-4">
+              <Link
+                to="/projects/create"
                 className="block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-center"
               >
                 Create New Project
-              </a>
-            )}
-            {user?.role === 'investor' && (
-              <a
-                href="/projects"
-                className="block bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-center"
-              >
-                Browse Projects to Invest
-              </a>
-            )}
-            {user?.role === 'collaborator' && (
-              <a
-                href="/projects"
-                className="block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-center"
-              >
-                Find Projects to Collaborate
-              </a>
-            )}
+              </Link>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Recent Projects Section */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Recent Projects</h2>
+          <Link
+            to="/projects"
+            className="text-indigo-600 hover:text-indigo-700 font-medium"
+          >
+            View All Projects
+          </Link>
         </div>
+        <ProjectList showUserProjects={user?.role === 'founder'} />
       </div>
     </div>
   );

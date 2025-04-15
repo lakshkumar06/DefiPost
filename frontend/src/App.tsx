@@ -6,6 +6,7 @@ import Homepage from './pages/HomePage';
 import HomepageBL from './pages/HomepageBL';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import CreateProject from './pages/CreateProject';
 import { useAuth } from './context/AuthContext';
 
 // Wrapper component to conditionally render Homepage or HomepageBL
@@ -30,6 +31,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <Homepage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/projects/create"
+              element={
+                <PrivateRoute>
+                  <CreateProject />
                 </PrivateRoute>
               }
             />

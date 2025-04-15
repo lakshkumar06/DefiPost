@@ -1,18 +1,20 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export interface Project {
   id: number;
   name: string;
   description: string;
-  targetAmount: number;
-  raisedAmount: number;
-  founderId: number;
-  founderName: string;
+  target_amount: number;
+  raised_amount: number;
+  founder_id: number;
+  founder_name: string;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ProjectContextType {
@@ -20,12 +22,22 @@ interface ProjectContextType {
   userProjects: Project[];
   loading: boolean;
   error: string | null;
-  createProject: (name: string, description: string, targetAmount: number) => Promise<Project>;
-  updateProject: (id: number, name: string, description: string, targetAmount: number, status: string) => Promise<void>;
+  createProject: (projectData: {
+    name: string;
+    description: string;
+    target_amount: number;
+  }) => Promise<Project>;
+  updateProject: (id: number, projectData: {
+    name: string;
+    description: string;
+    target_amount: number;
+    status: string;
+  }) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
   fetchProjects: () => Promise<void>;
   fetchUserProjects: () => Promise<void>;
   fetchProjectById: (id: number) => Promise<Project>;
+  investInProject: (projectId: number, amount: number) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -110,60 +122,90 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
     }
   };
 
-  const createProject = async (name: string, description: string, targetAmount: number): Promise<Project> => {
-    setLoading(true);
-    setError(null);
+  const createProject = async (projectData: {
+    name: string;
+    description: string;
+    target_amount: number;
+  }) => {
     try {
-      const response = await api.post('/projects', {
-        name,
-        description,
-        targetAmount
-      });
-      
-      // Update local state
-      const newProject = response.data.project;
-      setProjects(prev => [newProject, ...prev]);
-      setUserProjects(prev => [newProject, ...prev]);
-      
+      const response = await axios.post(
+        `${API_URL}/api/projects`,
+        {
+          name: projectData.name,
+          description: projectData.description,
+          targetAmount: projectData.target_amount
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
+      const newProject: Project = {
+        id: response.data.project.id,
+        name: response.data.project.name,
+        description: response.data.project.description,
+        target_amount: response.data.project.target_amount,
+        raised_amount: 0,
+        founder_id: response.data.project.founder_id,
+        founder_name: response.data.project.founder_name,
+        status: response.data.project.status,
+        created_at: response.data.project.created_at,
+        updated_at: response.data.project.updated_at,
+      };
+
+      setProjects((prev) => [newProject, ...prev]);
+      setUserProjects((prev) => [newProject, ...prev]);
       return newProject;
-    } catch (err: any) {
-      console.error('Error creating project:', err);
-      if (err.response?.status === 403) {
-        setError('Only founders can create projects');
-      } else {
-        setError('Failed to create project');
-      }
-      throw err;
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      throw error;
     }
   };
 
-  const updateProject = async (id: number, name: string, description: string, targetAmount: number, status: string): Promise<void> => {
-    setLoading(true);
-    setError(null);
+  const updateProject = async (
+    id: number,
+    projectData: {
+      name: string;
+      description: string;
+      target_amount: number;
+      status: string;
+    }
+  ) => {
     try {
-      await api.put(`/projects/${id}`, {
-        name,
-        description,
-        targetAmount,
-        status
-      });
-      
-      // Update local state
-      const updatedProject = { id, name, description, targetAmount, status } as Project;
-      setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updatedProject } : p));
-      setUserProjects(prev => prev.map(p => p.id === id ? { ...p, ...updatedProject } : p));
-    } catch (err: any) {
-      console.error('Error updating project:', err);
-      if (err.response?.status === 403) {
-        setError('You can only update your own projects');
-      } else {
-        setError('Failed to update project');
-      }
-      throw err;
-    } finally {
-      setLoading(false);
+      const response = await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/projects/${id}`,
+        projectData,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
+      const updatedProject: Project = {
+        id: response.data.project.id,
+        name: response.data.project.name,
+        description: response.data.project.description,
+        target_amount: response.data.project.target_amount,
+        raised_amount: response.data.project.raised_amount,
+        founder_id: response.data.project.founder_id,
+        founder_name: response.data.project.founder_name,
+        status: response.data.project.status,
+        created_at: response.data.project.created_at,
+        updated_at: response.data.project.updated_at,
+      };
+
+      setProjects((prev) =>
+        prev.map((p) => (p.id === id ? updatedProject : p))
+      );
+      setUserProjects((prev) =>
+        prev.map((p) => (p.id === id ? updatedProject : p))
+      );
+    } catch (error) {
+      console.error('Error updating project:', error);
+      throw error;
     }
   };
 
@@ -189,6 +231,34 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
     }
   };
 
+  const investInProject = async (projectId: number, amount: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${API_URL}/api/projects/${projectId}/invest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ amount })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to invest in project');
+      }
+
+      // Refresh projects list to show updated raised amount
+      await fetchProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while investing in the project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ProjectContext.Provider
       value={{
@@ -201,7 +271,8 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
         deleteProject,
         fetchProjects,
         fetchUserProjects,
-        fetchProjectById
+        fetchProjectById,
+        investInProject
       }}
     >
       {children}

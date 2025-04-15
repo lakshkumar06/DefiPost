@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { ProjectDetailsPopup } from './ProjectDetailsPopup';
+import { Project } from '../context/ProjectContext';
 
 interface ProjectListProps {
   showUserProjects?: boolean;
@@ -17,6 +19,8 @@ export const ProjectList = ({ showUserProjects = false }: ProjectListProps) => {
     fetchProjects, 
     fetchUserProjects 
   } = useProject();
+  
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     if (showUserProjects && user) {
@@ -27,6 +31,14 @@ export const ProjectList = ({ showUserProjects = false }: ProjectListProps) => {
   }, [showUserProjects, user]);
 
   const displayProjects = showUserProjects ? userProjects : projects;
+
+  const handleProjectClick = (project: Project) => {
+    setSelectedProject(project);
+  };
+
+  const handleClosePopup = () => {
+    setSelectedProject(null);
+  };
 
   if (loading) {
     return (
@@ -65,63 +77,72 @@ export const ProjectList = ({ showUserProjects = false }: ProjectListProps) => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-      {displayProjects.map((project) => (
-        <Link
-          key={project.id}
-          to={`/projects/${project.id}`}
-          className="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
-        >
-          <div className="p-6">
-            <h3 className="text-xl font-semibold mb-2">{project.name}</h3>
-            <p className="text-gray-600 mb-4 line-clamp-2">{project.description}</p>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Target Amount:</span>
-                <span className="font-medium">{project.targetAmount} ETH</span>
-              </div>
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+        {displayProjects.map((project) => (
+          <div
+            key={project.id}
+            onClick={() => handleProjectClick(project)}
+            className="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+          >
+            <div className="p-6">
+              <h3 className="text-xl font-semibold mb-2">{project.name}</h3>
+              <p className="text-gray-600 mb-4 line-clamp-2">{project.description}</p>
               
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Raised:</span>
-                <span className="font-medium">{project.raisedAmount} ETH</span>
-              </div>
-              
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-indigo-600 h-2 rounded-full"
-                  style={{
-                    width: `${Math.min(
-                      (project.raisedAmount / project.targetAmount) * 100,
-                      100
-                    )}%`,
-                  }}
-                ></div>
-              </div>
-              
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Status:</span>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    project.status === 'active'
-                      ? 'bg-green-100 text-green-800'
-                      : project.status === 'completed'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                </span>
-              </div>
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Founder:</span>
-                <span className="font-medium">{project.founderName}</span>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Target Amount:</span>
+                  <span className="font-medium">{project.target_amount} ETH</span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Raised:</span>
+                  <span className="font-medium">{project.raised_amount} ETH</span>
+                </div>
+                
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-indigo-600 h-2 rounded-full"
+                    style={{
+                      width: `${Math.min(
+                        (project.raised_amount / project.target_amount) * 100,
+                        100
+                      )}%`,
+                    }}
+                  ></div>
+                </div>
+                
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Status:</span>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      project.status === 'active'
+                        ? 'bg-green-100 text-green-800'
+                        : project.status === 'completed'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Founder:</span>
+                  <span className="font-medium">{project.founder_name}</span>
+                </div>
               </div>
             </div>
           </div>
-        </Link>
-      ))}
-    </div>
+        ))}
+      </div>
+      
+      {selectedProject && (
+        <ProjectDetailsPopup 
+          project={selectedProject} 
+          onClose={handleClosePopup} 
+        />
+      )}
+    </>
   );
 }; 

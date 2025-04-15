@@ -70,7 +70,20 @@ async function initializeDatabase() {
     )
   `);
 
-  console.log('Database initialized with users and projects tables');
+  // Create investments table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS investments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      investor_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id),
+      FOREIGN KEY (investor_id) REFERENCES users(id)
+    )
+  `);
+
+  console.log('Database initialized with users, projects, and investments tables');
 }
 
 // Initialize database on startup
@@ -434,6 +447,74 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Project deletion error:', error);
     res.status(500).json({ message: 'Server error during project deletion' });
+  }
+});
+
+// Invest in a project
+app.post('/api/projects/:id/invest', authenticateToken, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const projectId = req.params.id;
+    const investorId = req.user.id;
+
+    // Validate input
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid investment amount' });
+    }
+
+    // Check if user is an investor
+    const user = await db.get('SELECT role FROM users WHERE id = ?', [investorId]);
+    if (!user || user.role !== 'investor') {
+      return res.status(403).json({ message: 'Only investors can invest in projects' });
+    }
+
+    // Check if project exists and is active
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', [projectId]);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    if (project.status !== 'active') {
+      return res.status(400).json({ message: 'Project is not accepting investments' });
+    }
+
+    // Start transaction
+    await db.run('BEGIN TRANSACTION');
+
+    try {
+      // Create investment record
+      await db.run(
+        'INSERT INTO investments (project_id, investor_id, amount) VALUES (?, ?, ?)',
+        [projectId, investorId, amount]
+      );
+
+      // Update project raised amount
+      await db.run(
+        'UPDATE projects SET raised_amount = raised_amount + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [amount, projectId]
+      );
+
+      // Check if target amount is reached
+      const updatedProject = await db.get('SELECT * FROM projects WHERE id = ?', [projectId]);
+      if (updatedProject.raised_amount >= updatedProject.target_amount) {
+        await db.run(
+          'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          ['funded', projectId]
+        );
+      }
+
+      await db.run('COMMIT');
+
+      res.json({
+        message: 'Investment successful',
+        project: updatedProject
+      });
+    } catch (error) {
+      await db.run('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Investment error:', error);
+    res.status(500).json({ message: 'Server error during investment' });
   }
 });
 

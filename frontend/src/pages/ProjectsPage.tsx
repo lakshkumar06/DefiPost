@@ -1,63 +1,45 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Project } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
+import { Project } from '../context/ProjectContext';
+import { ProjectDetailsPopup } from '../components/ProjectDetailsPopup';
 
 const ProjectsPage = () => {
-  const { user, getProjects, createProject, investInProject, joinAsCollaborator } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Form states for new project
+  const { user } = useAuth();
+  const { projects, loading, error, fetchProjects, createProject } = useProject();
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
     targetAmount: 0,
     status: 'active' as const,
   });
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     fetchProjects();
   }, []);
 
-  const fetchProjects = async () => {
-    try {
-      const data = await getProjects();
-      setProjects(data);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to fetch projects');
-      setLoading(false);
-    }
-  };
-
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createProject(newProject);
+      await createProject({
+        name: newProject.name,
+        description: newProject.description,
+        target_amount: newProject.targetAmount
+      });
       setNewProject({ name: '', description: '', targetAmount: 0, status: 'active' });
       fetchProjects();
     } catch (err) {
-      setError('Failed to create project');
+      console.error('Failed to create project:', err);
     }
   };
 
-  const handleInvest = async (projectId: number, amount: number) => {
-    try {
-      await investInProject(projectId, amount);
-      fetchProjects();
-    } catch (err) {
-      setError('Failed to invest in project');
-    }
+  const handleProjectClick = (project: Project) => {
+    setSelectedProject(project);
   };
 
-  const handleJoinProject = async (projectId: number) => {
-    try {
-      await joinAsCollaborator(projectId);
-      fetchProjects();
-    } catch (err) {
-      setError('Failed to join project');
-    }
+  const handleClosePopup = () => {
+    setSelectedProject(null);
   };
 
   if (loading) return <div className="text-center p-4">Loading...</div>;
@@ -114,42 +96,33 @@ const ProjectsPage = () => {
       {/* Projects List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
-          <div key={project.id} className="bg-white rounded-lg shadow p-6">
+          <div 
+            key={project.id} 
+            className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => handleProjectClick(project)}
+          >
             <h3 className="text-xl font-semibold mb-2">{project.name}</h3>
             <p className="text-gray-600 mb-4">{project.description}</p>
             <div className="mb-4">
-              <p className="text-sm text-gray-500">Raised: ${project.moneyRaised}</p>
-              <p className="text-sm text-gray-500">Target: ${project.targetAmount}</p>
+              <p className="text-sm text-gray-500">Raised: ${project.raised_amount}</p>
+              <p className="text-sm text-gray-500">Target: ${project.target_amount}</p>
               <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
                 <div
                   className="bg-indigo-600 h-2.5 rounded-full"
-                  style={{ width: `${(project.moneyRaised / project.targetAmount) * 100}%` }}
+                  style={{ width: `${(project.raised_amount / project.target_amount) * 100}%` }}
                 ></div>
               </div>
             </div>
-            
-            {/* Investor View - Invest Button */}
-            {user?.role === 'investor' && (
-              <button
-                onClick={() => handleInvest(project.id, 1000)} // Example amount
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 w-full"
-              >
-                Invest $1000
-              </button>
-            )}
-
-            {/* Collaborator View - Join Button */}
-            {user?.role === 'collaborator' && (
-              <button
-                onClick={() => handleJoinProject(project.id)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full"
-              >
-                Join as Collaborator
-              </button>
-            )}
           </div>
         ))}
       </div>
+      
+      {selectedProject && (
+        <ProjectDetailsPopup 
+          project={selectedProject} 
+          onClose={handleClosePopup} 
+        />
+      )}
     </div>
   );
 };
